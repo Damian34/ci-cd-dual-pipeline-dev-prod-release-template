@@ -1,0 +1,53 @@
+# This pipeline works similarly to 'update-version-prod-v01.yml',
+# but uses Git commit history instead of tags to identify stable versions.
+
+name: Release Version on Prod/Main v02
+
+on:
+  workflow_dispatch: # Allows manually triggering the pipeline by GitHub Actions
+
+jobs:
+  update-version-prod-v02:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code from dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev  # Checkout dev branch to get the latest version
+          fetch-depth: 0 # fetch full history to go through all commits
+          persist-credentials: true  # use GITHUB_TOKEN to push
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Search commit history for last stable version
+        id: find_stable_commit
+        run: |
+          git log --oneline --pretty=format:"%H" | while read commit_hash; do
+            echo "Checking commit: $commit_hash"
+            git checkout $commit_hash
+            VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+            if [[ "$VERSION" != *"-SNAPSHOT" ]]; then
+              echo "Stable version found: $VERSION at commit $commit_hash"
+              echo "LAST_STABLE_VERSION=$VERSION" >> $GITHUB_ENV
+              echo "LAST_STABLE_COMMIT_HASH=$commit_hash" >> $GITHUB_ENV
+              break
+            fi
+          done
+
+      - name: Push stable version to main
+        run: |
+          git checkout $LAST_STABLE_COMMIT_HASH
+          git checkout main
+          git merge dev --no-ff -m "Release Version $LAST_STABLE_VERSION"
+          git push origin main

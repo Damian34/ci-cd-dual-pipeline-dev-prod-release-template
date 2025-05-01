@@ -1,20 +1,28 @@
 # This pipeline works manually
-# and what it does is find newest non-SNAPSHOT tag on dev branch
+# and what it does is find newest non-SNAPSHOT TAG on dev branch
 # and merge it to main/prod branch
 
-name: Release Version on Prod/Main
+name: Release Version on Prod/Main v01
 
 on:
   workflow_dispatch: # Allows manually triggering the pipeline by GitHub Actions
 
 jobs:
-  update-version-prod:
+  update-version-prod-v01:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # fetch full history
+          persist-credentials: true  # use GITHUB_TOKEN to push
+
+      - name: Set Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Fetch all tags
         run: git fetch origin --tags
@@ -31,7 +39,6 @@ jobs:
           fi
     
           COMMIT_HASH=$(git rev-list -n 1 "$LAST_TAG")
-      
           echo "LAST_TAG=$LAST_TAG" >> $GITHUB_ENV
           echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
 
@@ -57,8 +64,3 @@ jobs:
           git checkout main
           git merge ${{ env.COMMIT_HASH }} --no-ff -m "Release version ${{ env.LAST_TAG }}"
           git push origin main
-
-      - name: Tag main for consistency
-        run: |
-          git tag -a ${{ env.LAST_TAG }} -m "Release version ${{ env.LAST_TAG }}"
-          git push origin main --tags

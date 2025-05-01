@@ -1,0 +1,67 @@
+# This pipeline works similarly to 'update-version-dev-v02.yml',
+# but without inputs only update version fragment PATCH
+
+# ATTENTION! since here is not needed developer for developer to select input then the pipeline gonna just scrap "-SNAPSHOT" from start version!
+# like 0.0.1-SNAPSHOT -> 0.0.1 -> 0.0.2-SNAPSHOT
+# here are no TAGs used
+
+name: Update Version on Dev v04
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-version-dev-v04:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code from dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0 # fetch full history to go through all commits
+          persist-credentials: true  # use GITHUB_TOKEN to push
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Get current version from pom.xml
+        id: get_version
+        run: |
+          FULL_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          VERSION=${FULL_VERSION%-SNAPSHOT}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Set release version (remove -SNAPSHOT) and commit
+        run: |
+          mvn versions:set -DnewVersion=${{ env.VERSION }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "Prepare release version ${{ env.VERSION }}"
+          git push origin dev
+
+      - name: Calculate new version
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ env.VERSION }}"
+          patch=$((patch + 1))
+          NEW_RELEASE_VERSION="${major}.${minor}.${patch}"
+          echo "NEW_RELEASE_VERSION=$NEW_RELEASE_VERSION" >> $GITHUB_ENV
+
+      - name: Calculate new snapshot version
+        run: |
+          NEW_SNAPSHOT_VERSION="${{ env.NEW_RELEASE_VERSION }}-SNAPSHOT"
+          echo "NEW_SNAPSHOT_VERSION=$NEW_SNAPSHOT_VERSION" >> $GITHUB_ENV
+
+      - name: Set new snapshot version in pom.xml and commit
+        run: |
+          mvn versions:set -DnewVersion=${{ env.NEW_SNAPSHOT_VERSION }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "Prepare next development iteration: ${{ env.NEW_SNAPSHOT_VERSION }}"
+          git push origin dev

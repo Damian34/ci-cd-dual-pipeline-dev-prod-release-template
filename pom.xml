@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.damian34</groupId>
 	<artifactId>dummy</artifactId>
-	<version>0.3.0</version>
+	<version>0.3.0-SNAPSHOT</version>
 	<name>dummy</name>
 	<description>Dummy project for Spring Boot</description>
 	<properties>

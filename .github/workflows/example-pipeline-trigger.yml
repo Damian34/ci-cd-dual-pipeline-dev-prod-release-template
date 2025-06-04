@@ -1,0 +1,27 @@
+name: Trigger workflow example
+
+on:
+  workflow_dispatch: # Allows manually triggering the pipeline by GitHub Actions
+
+permissions:
+  actions: write
+
+jobs:
+  update-version-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # fetch full history
+
+      - name: Trigger Hello Pipeline
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'example-hello.yaml',
+              ref: 'main',
+            })
